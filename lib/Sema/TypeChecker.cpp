@@ -176,6 +176,8 @@ DeclName TypeChecker::getObjectLiteralConstructorName(ObjectLiteralExpr *expr) {
     return DeclName(Context, DeclBaseName::createConstructor(),
             { Context.getIdentifier("fileReferenceLiteralResourceName") });
   }
+  // SWIFT_ENABLE_TENSORFLOW
+  case ObjectLiteralExpr::tfop: return DeclName();
   }
   llvm_unreachable("unknown literal constructor");
 }
@@ -211,6 +213,9 @@ Type TypeChecker::getObjectLiteralParameterType(ObjectLiteralExpr *expr,
   case ObjectLiteralExpr::fileLiteral:
   case ObjectLiteralExpr::imageLiteral:
     return replace("resourceName");
+  // SWIFT_ENABLE_TENSORFLOW
+  case ObjectLiteralExpr::tfop:
+    llvm_unreachable("#tfop gets special type checking");
   }
   llvm_unreachable("unknown literal constructor");
 }
@@ -553,6 +558,15 @@ static void typeCheckFunctionsAndExternalDecls(SourceFile &SF, TypeChecker &TC) 
   // bodies having been type-checked.
   for (AbstractFunctionDecl *FD : TC.definedFunctions) {
     TC.checkFunctionErrorHandling(FD);
+  }
+
+  // SWIFT_ENABLE_TENSORFLOW
+  // Check @compilerEvaluable function body correctness for all the functions
+  // defined in this file. We do this here, rather than in
+  // AttributeChecker::visitCompilerEvaluableAttr() because we need the function
+  // bodies to be type checked.
+  for (AbstractFunctionDecl *AFD : TC.definedFunctions) {
+    TC.checkFunctionBodyCompilerEvaluable(AFD);
   }
 }
 
@@ -954,6 +968,11 @@ TypeChecker::getDeclTypeCheckingSemantics(ValueDecl *decl) {
       return DeclTypeCheckingSemantics::WithoutActuallyEscaping;
     if (semantics->Value.equals("typechecker._openExistential(_:do:)"))
       return DeclTypeCheckingSemantics::OpenExistential;
+    // SWIFT_ENABLE_TENSORFLOW
+    if (semantics->Value.equals("typechecker.gradient(of:)"))
+      return DeclTypeCheckingSemantics::GradientOf;
+    if (semantics->Value.equals("typechecker.valueAndGradient(of:)"))
+      return DeclTypeCheckingSemantics::ValueAndGradientOf;
   }
   return DeclTypeCheckingSemantics::Normal;
 }

@@ -5183,6 +5183,14 @@ ValueDecl *TypeChecker::deriveProtocolRequirement(DeclContext *DC,
   case KnownProtocolKind::Decodable:
     return derived.deriveDecodable(Requirement);
 
+  // SWIFT_ENABLE_TENSORFLOW
+  case KnownProtocolKind::Parameterized:
+    return derived.deriveParameterized(Requirement);
+
+  // SWIFT_ENABLE_TENSORFLOW
+  case KnownProtocolKind::ParameterAggregate:
+    return derived.deriveParameterAggregate(Requirement);
+
   default:
     return nullptr;
   }
@@ -5206,6 +5214,11 @@ Type TypeChecker::deriveTypeWitness(DeclContext *DC,
     return derived.deriveRawRepresentable(AssocType);
   case KnownProtocolKind::CaseIterable:
     return derived.deriveCaseIterable(AssocType);
+  // SWIFT_ENABLE_TENSORFLOW
+  case KnownProtocolKind::Parameterized:
+    return derived.deriveParameterized(AssocType);
+  case KnownProtocolKind::ParameterAggregate:
+    return derived.deriveParameterAggregate(AssocType);
   default:
     return nullptr;
   }

@@ -102,6 +102,8 @@ static bool isOwnershipForwardingValueKind(SILNodeKind K) {
   case SILNodeKind::CondBranchInst:
   case SILNodeKind::DestructureStructInst:
   case SILNodeKind::DestructureTupleInst:
+  // SWIFT_ENABLE_TENSORFLOW
+  case SILNodeKind::GradientInst:
     return true;
   default:
     return false;
@@ -570,6 +572,8 @@ FORWARD_ANY_OWNERSHIP_INST(MarkUninitialized)
 FORWARD_ANY_OWNERSHIP_INST(UncheckedEnumData)
 FORWARD_ANY_OWNERSHIP_INST(DestructureStruct)
 FORWARD_ANY_OWNERSHIP_INST(DestructureTuple)
+// SWIFT_ENABLE_TENSORFLOW
+FORWARD_ANY_OWNERSHIP_INST(Gradient)
 #undef FORWARD_ANY_OWNERSHIP_INST
 
 // An instruction that forwards a constant ownership or trivial ownership.
@@ -1277,6 +1281,15 @@ CONSTANT_OWNERSHIP_BUILTIN(Trivial, MustBeLive, ZExt)
 CONSTANT_OWNERSHIP_BUILTIN(Trivial, MustBeLive, ZExtOrBitCast)
 CONSTANT_OWNERSHIP_BUILTIN(Trivial, MustBeLive, ZeroInitializer)
 CONSTANT_OWNERSHIP_BUILTIN(Trivial, MustBeLive, Swift3ImplicitObjCEntrypoint)
+
+// SWIFT_ENABLE_TENSORFLOW
+CONSTANT_OWNERSHIP_BUILTIN(Trivial, MustBeLive, TensorFlowSend)
+CONSTANT_OWNERSHIP_BUILTIN(Trivial, MustBeLive, TensorFlowReceive)
+CONSTANT_OWNERSHIP_BUILTIN(Trivial, MustBeLive, AutoDiffCreateTape)
+CONSTANT_OWNERSHIP_BUILTIN(Trivial, MustBeLive, AutoDiffPushToTape)
+CONSTANT_OWNERSHIP_BUILTIN(Trivial, MustBeLive, AutoDiffPopFromTape)
+CONSTANT_OWNERSHIP_BUILTIN(Trivial, MustBeLive, AutoDiffDestroyTape)
+CONSTANT_OWNERSHIP_BUILTIN(Trivial, MustBeLive, PoundAssert)
 #undef CONSTANT_OWNERSHIP_BUILTIN
 
 // Builtins that should be lowered to SIL instructions so we should never see
@@ -1293,6 +1306,14 @@ CONSTANT_OWNERSHIP_BUILTIN(Trivial, MustBeLive, Swift3ImplicitObjCEntrypoint)
 OwnershipUseCheckerResult
 OwnershipCompatibilityUseChecker::visitBuiltinInst(BuiltinInst *BI) {
   return OwnershipCompatibilityBuiltinUseChecker(*this).check(BI);
+}
+
+// SWIFT_ENABLE_TENSORFLOW
+OwnershipUseCheckerResult
+OwnershipCompatibilityUseChecker::visitGraphOperationInst(
+    GraphOperationInst *GI) {
+  // Graph ops take operands at +0.
+  return {true, UseLifetimeConstraint::MustBeLive};
 }
 
 //===----------------------------------------------------------------------===//

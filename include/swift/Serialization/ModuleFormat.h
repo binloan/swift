@@ -55,7 +55,7 @@ const uint16_t VERSION_MAJOR = 0;
 /// describe what change you made. The content of this comment isn't important;
 /// it just ensures a conflict if two people change the module format.
 /// Don't worry about adhering to the 80-column limit for this line.
-const uint16_t VERSION_MINOR = 450; // Last change: don't serialize requirement environment
+const uint16_t VERSION_MINOR = 451; // Last change: add graph_op serialization
 
 using DeclIDField = BCFixed<31>;
 
@@ -172,6 +172,8 @@ enum class FunctionTypeRepresentation : uint8_t {
   Block,
   Thin,
   CFunctionPointer,
+  // SWIFT_ENABLE_TENSORFLOW
+  TensorFlow,
 };
 using FunctionTypeRepresentationField = BCFixed<4>;
 
@@ -192,7 +194,9 @@ enum class SILFunctionTypeRepresentation : uint8_t {
   Block,
   Thin,
   CFunctionPointer,
-  
+  // SWIFT_ENABLE_TENSORFLOW
+  TensorFlow,
+
   FirstSIL = 8,
   Method = FirstSIL,
   ObjCMethod,
@@ -1557,6 +1561,17 @@ namespace decls_block {
     Specialize_DECL_ATTR,
     BCFixed<1>, // exported flag
     BCFixed<1> // specialization kind
+  >;
+
+  // SWIFT_ENABLE_TENSORFLOW
+  using DifferentiableDeclAttrLayout = BCRecordLayout<
+    Differentiable_DECL_ATTR,
+    BCFixed<1>, // Differentiation mode ('forward' or 'reverse').
+    IdentifierIDField, // Primal name.
+    DeclIDField, // Primal function declaration.
+    IdentifierIDField, // Adjoint name.
+    DeclIDField, // Adjoint function declaration.
+    BCArray<BCFixed<32>> // Differentiation parameters.
   >;
 
 #define SIMPLE_DECL_ATTR(X, CLASS, ...) \

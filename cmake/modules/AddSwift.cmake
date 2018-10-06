@@ -580,6 +580,7 @@ endfunction()
 #     [LINK_FLAGS flag1...]
 #     [API_NOTES_NON_OVERLAY]
 #     [FILE_DEPENDS target1 ...]
+#     [EXTRA_RPATH rpath1...]
 #     [DONT_EMBED_BITCODE]
 #     [IS_STDLIB]
 #     [FORCE_BUILD_OPTIMIZED]
@@ -640,6 +641,9 @@ endfunction()
 # FILE_DEPENDS
 #   Additional files this library depends on.
 #
+# EXTRA_RPATH
+#   Add the directories to the library's rpath.
+#
 # DONT_EMBED_BITCODE
 #   Don't embed LLVM bitcode in this target, even if it is enabled globally.
 #
@@ -686,6 +690,7 @@ function(_add_swift_library_single target name)
   set(SWIFTLIB_SINGLE_multiple_parameter_options
         C_COMPILE_FLAGS
         DEPENDS
+	EXTRA_RPATH
         FILE_DEPENDS
         FRAMEWORK_DEPENDS
         FRAMEWORK_DEPENDS_WEAK
@@ -1001,6 +1006,7 @@ function(_add_swift_library_single target name)
     endforeach()
   endif()
 
+  set(local_rpath "")
   is_darwin_based_sdk("${SWIFTLIB_SINGLE_SDK}" IS_DARWIN)
   if(IS_DARWIN)
     set(install_name_dir "@rpath")
@@ -1016,13 +1022,22 @@ function(_add_swift_library_single target name)
       PROPERTIES
       INSTALL_NAME_DIR "${install_name_dir}")
   elseif("${SWIFTLIB_SINGLE_SDK}" STREQUAL "LINUX" AND NOT "${SWIFTLIB_SINGLE_SDK}" STREQUAL "ANDROID")
-    set_target_properties("${target}"
-      PROPERTIES
-      INSTALL_RPATH "$ORIGIN:/usr/lib/swift/linux")
+    set(local_rpath "$ORIGIN:/usr/lib/swift/linux")
   elseif("${SWIFTLIB_SINGLE_SDK}" STREQUAL "CYGWIN")
+    set(local_rpath "$ORIGIN:/usr/lib/swift/cygwin")
+  endif()
+
+  foreach(rpath_element ${SWIFTLIB_SINGLE_EXTRA_RPATH})
+    if("${local_rpath}" STREQUAL "")
+      set(local_rpath "${rpath_element}")
+    else()
+      set(local_rpath "${local_rpath}:${rpath_element}")
+    endif()
+  endforeach()
+  if(NOT "${local_rpath}" STREQUAL "")
     set_target_properties("${target}"
       PROPERTIES
-      INSTALL_RPATH "$ORIGIN:/usr/lib/swift/cygwin")
+      INSTALL_RPATH "${local_rpath}")
   endif()
 
   set_target_properties("${target}" PROPERTIES BUILD_WITH_INSTALL_RPATH YES)
@@ -1327,6 +1342,7 @@ endfunction()
 #     [C_COMPILE_FLAGS flag1...]
 #     [SWIFT_COMPILE_FLAGS flag1...]
 #     [LINK_FLAGS flag1...]
+#     [EXTRA_RPATH rpath1...]
 #     [DONT_EMBED_BITCODE]
 #     [API_NOTES_NON_OVERLAY]
 #     [INSTALL]
@@ -1408,6 +1424,9 @@ endfunction()
 # LINK_FLAGS
 #   Extra linker flags.
 #
+# EXTRA_RPATH
+#   Add the directoiries to the library's rpath.
+#
 # API_NOTES_NON_OVERLAY
 #   Generate API notes for non-overlayed modules with this target.
 #
@@ -1472,6 +1491,7 @@ function(add_swift_library name)
   set(SWIFTLIB_multiple_parameter_options
         C_COMPILE_FLAGS
         DEPENDS
+	EXTRA_RPATH
         FILE_DEPENDS
         FRAMEWORK_DEPENDS
         FRAMEWORK_DEPENDS_IOS_TVOS
@@ -1775,6 +1795,7 @@ function(add_swift_library name)
           PRIVATE_LINK_LIBRARIES ${swiftlib_private_link_libraries_targets}
           INCORPORATE_OBJECT_LIBRARIES ${SWIFTLIB_INCORPORATE_OBJECT_LIBRARIES}
           INCORPORATE_OBJECT_LIBRARIES_SHARED_ONLY ${SWIFTLIB_INCORPORATE_OBJECT_LIBRARIES_SHARED_ONLY}
+          EXTRA_RPATH ${SWIFTLIB_EXTRA_RPATH}
           ${SWIFTLIB_DONT_EMBED_BITCODE_keyword}
           ${SWIFTLIB_API_NOTES_NON_OVERLAY_keyword}
           ${SWIFTLIB_IS_STDLIB_keyword}
@@ -1978,6 +1999,7 @@ function(add_swift_library name)
       INTERFACE_LINK_LIBRARIES ${SWIFTLIB_INTERFACE_LINK_LIBRARIES}
       INCORPORATE_OBJECT_LIBRARIES ${SWIFTLIB_INCORPORATE_OBJECT_LIBRARIES}
       INCORPORATE_OBJECT_LIBRARIES_SHARED_ONLY ${SWIFTLIB_INCORPORATE_OBJECT_LIBRARIES_SHARED_ONLY}
+      EXTRA_RPATH ${SWIFTLIB_EXTRA_RPATH}
       ${SWIFTLIB_DONT_EMBED_BITCODE_keyword}
       ${SWIFTLIB_API_NOTES_NON_OVERLAY_keyword}
       ${SWIFTLIB_IS_STDLIB_keyword}
@@ -2071,11 +2093,21 @@ function(_add_swift_executable_single name)
     list(APPEND link_flags "-Wl,-no_pie")
   endif()
 
+  # SWIFT_ENABLE_TENSORFLOW
+  set(swift_relative_library_path "../lib/swift/${SWIFT_SDK_${SWIFTEXE_SINGLE_SDK}_LIB_SUBDIR}")
   is_darwin_based_sdk("${SWIFTEXE_SINGLE_SDK}" IS_DARWIN)
   if(IS_DARWIN)
     list(APPEND link_flags
         "-Xlinker" "-rpath"
-        "-Xlinker" "@executable_path/../lib/swift/${SWIFT_SDK_${SWIFTEXE_SINGLE_SDK}_LIB_SUBDIR}")
+        "-Xlinker" "@executable_path/${swift_relative_library_path}")
+  # NOTE: Adding "${SWIFTLIB_DIR}/linux" to the rpath is a hack solely for
+  # working around tests like Driver/linker.swift which copy/hard link Swift
+  # executables to different directories without also copying the "libs"
+  # directory. A more robust solution should be found.
+  elseif("${SWIFTEXE_SINGLE_SDK}" STREQUAL "LINUX" AND NOT "${SWIFTEXE_SINGLE_SDK}" STREQUAL "ANDROID")
+    set(local_rpath "$ORIGIN:$ORIGIN/${swift_relative_library_path}:${SWIFTLIB_DIR}/linux:/usr/lib/swift/linux")
+  elseif("${SWIFTEXE_SINGLE_SDK}" STREQUAL "CYGWIN")
+    set(local_rpath "$ORIGIN:$ORIGIN/${swift_relative_library_path}:${SWIFTLIB_DIR}/cygwin:/usr/lib/swift/cygwin")
   endif()
 
   # Find the names of dependency library targets.
@@ -2139,6 +2171,12 @@ function(_add_swift_executable_single name)
 
   set_target_properties(${name}
       PROPERTIES FOLDER "Swift executables")
+
+  # SWIFT_ENABLE_TENSORFLOW
+  if(NOT "${local_rpath}" STREQUAL "")
+    set_target_properties("${name}" PROPERTIES INSTALL_RPATH "${local_rpath}")
+  endif()
+  set_target_properties("${name}" PROPERTIES BUILD_WITH_INSTALL_RPATH YES)
 endfunction()
 
 # Add an executable for each target variant. Executables are given suffixes

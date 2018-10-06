@@ -227,6 +227,18 @@ SYNTAX_NODE_SERIALIZATION_CODES = {
     'FunctionType': 222,
     'AttributedType': 223,
     'YieldStmt': 224,
+    # SWIFT_ENABLE_TENSORFLOW
+    'ReverseAutoDiffExpr': 225,
+    'ReverseAutoDiffExprParamList': 226,
+    'ReverseAutoDiffExprParam': 227,
+    'AdjointExpr': 228,
+    'PoundAssertExpr': 229,
+    'DifferentiableAttributeArguments': 230,
+    'DifferentiableAttributeDiffParams': 231,
+    'DifferentiableAttributeDiffParamList': 232,
+    'DifferentiableAttributeDiffParam': 233,
+    'DifferentiationIndexParam': 234,
+    'DifferentiableAttributeFuncSpecifier': 235,
 }
 
 

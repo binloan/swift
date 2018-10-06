@@ -893,6 +893,9 @@ void Serializer::writeBlockInfoBlock() {
   BLOCK_RECORD(sil_block, SIL_SPECIALIZE_ATTR);
   BLOCK_RECORD(sil_block, SIL_ONE_OPERAND_EXTRA_ATTR);
   BLOCK_RECORD(sil_block, SIL_TWO_OPERANDS_EXTRA_ATTR);
+  // SWIFT_ENABLE_TENSORFLOW
+  BLOCK_RECORD(sil_block, SIL_REVERSE_DIFFERENTIABLE_ATTR);
+  BLOCK_RECORD(sil_block, SIL_INST_GRAPH_OPERATION);
 
   // These layouts can exist in both decl blocks and sil blocks.
 #define BLOCK_RECORD_WITH_NAMESPACE(K, X) emitRecordID(Out, X, #X, nameBuffer)
@@ -2378,6 +2381,47 @@ void Serializer::writeDeclAttribute(const DeclAttribute *DA) {
     writeGenericRequirements(SA->getRequirements(), DeclTypeAbbrCodes);
     return;
   }
+
+  // SWIFT_ENABLE_TENSORFLOW
+  case DAK_Differentiable: {
+    auto abbrCode = DeclTypeAbbrCodes[DifferentiableDeclAttrLayout::Code];
+    auto attr = cast<DifferentiableAttr>(DA);
+
+    IdentifierID primalName = 0;
+    DeclID primalRef = 0;
+    if (auto primal = attr->getPrimal()) {
+      primalName = addDeclBaseNameRef(primal->Name.getBaseName());
+      primalRef = addDeclRef(attr->getPrimalFunction());
+    }
+    IdentifierID adjointName = 0;
+    DeclID adjointRef = 0;
+    if (auto adjoint = attr->getAdjoint()) {
+      adjointName = addDeclBaseNameRef(adjoint->Name.getBaseName());
+      adjointRef = addDeclRef(attr->getAdjointFunction());
+    }
+
+    SmallVector<uint32_t, 4> parameters;
+    for (auto param : attr->getParameters()) {
+      switch (param.getKind()) {
+      // The self parameter is uniquely identified by 0x01.
+      case AutoDiffParameter::Kind::Self:
+        parameters.push_back(1);
+        break;
+      // Index parameters are left-shifted by 1.
+      case AutoDiffParameter::Kind::Index:
+        parameters.push_back(param.getIndex() << 1);
+        break;
+      }
+    }
+
+    DifferentiableDeclAttrLayout::emitRecord(
+      Out, ScratchRecord, abbrCode, (unsigned) attr->getMode(), primalName,
+      primalRef, adjointName, adjointRef, parameters);
+    // TODO: Serialize trailing where clause.
+    // Type-checking where clause should be done first (mimicking the
+    // @_specialize attribute).
+    return;
+  }
   }
 }
 
@@ -3537,6 +3581,8 @@ static uint8_t getRawStableFunctionTypeRepresentation(
   SIMPLE_CASE(FunctionTypeRepresentation, Block)
   SIMPLE_CASE(FunctionTypeRepresentation, Thin)
   SIMPLE_CASE(FunctionTypeRepresentation, CFunctionPointer)
+  // SWIFT_ENABLE_TENSORFLOW
+  SIMPLE_CASE(FunctionTypeRepresentation, TensorFlow)
   }
   llvm_unreachable("bad calling convention");
 }
@@ -3554,6 +3600,9 @@ static uint8_t getRawStableSILFunctionTypeRepresentation(
   SIMPLE_CASE(SILFunctionTypeRepresentation, ObjCMethod)
   SIMPLE_CASE(SILFunctionTypeRepresentation, WitnessMethod)
   SIMPLE_CASE(SILFunctionTypeRepresentation, Closure)
+
+  // SWIFT_ENABLE_TENSORFLOW
+  SIMPLE_CASE(SILFunctionTypeRepresentation, TensorFlow)
   }
   llvm_unreachable("bad calling convention");
 }

@@ -74,6 +74,8 @@ namespace swift {
   class ProtocolConformance;
   enum PointerTypeKind : unsigned;
   struct ValueOwnershipKind;
+  // SWIFT_ENABLE_TENSORFLOW
+  struct SILReverseAutoDiffConfig;
 
   enum class TypeKind : uint8_t {
 #define TYPE(id, parent) id,
@@ -2526,9 +2528,13 @@ enum class FunctionTypeRepresentation : uint8_t {
   /// A C function pointer, which is thin and also uses the C calling
   /// convention.
   CFunctionPointer,
-  
+
+  // SWIFT_ENABLE_TENSORFLOW
+  /// A function that will be promoted to a TensorFlow Graph.
+  TensorFlow,
+
   /// The value of the greatest AST function representation.
-  Last = CFunctionPointer,
+  Last = TensorFlow,
 };
 
 /// The representation form of a SIL function.
@@ -2553,9 +2559,13 @@ enum class SILFunctionTypeRepresentation : uint8_t {
   /// A C function pointer, which is thin and also uses the C calling
   /// convention.
   CFunctionPointer = uint8_t(FunctionTypeRepresentation::CFunctionPointer),
-  
+
+  // SWIFT_ENABLE_TENSORFLOW
+  /// A TensorFlow function pointer.
+  TensorFlow = uint8_t(FunctionTypeRepresentation::TensorFlow),
+
   /// The value of the greatest AST function representation.
-  LastAST = CFunctionPointer,
+  LastAST = TensorFlow,
 
   /// The value of the least SIL-only function representation.
   FirstSIL = 8,
@@ -2582,6 +2592,8 @@ inline bool canBeCalledIndirectly(SILFunctionTypeRepresentation rep) {
   case SILFunctionTypeRepresentation::CFunctionPointer:
   case SILFunctionTypeRepresentation::Block:
   case SILFunctionTypeRepresentation::Closure:
+  // SWIFT_ENABLE_TENSORFLOW
+  case SILFunctionTypeRepresentation::TensorFlow:
     return false;
   case SILFunctionTypeRepresentation::ObjCMethod:
   case SILFunctionTypeRepresentation::Method:
@@ -2606,6 +2618,8 @@ getSILFunctionLanguage(SILFunctionTypeRepresentation rep) {
   case SILFunctionTypeRepresentation::Method:
   case SILFunctionTypeRepresentation::WitnessMethod:
   case SILFunctionTypeRepresentation::Closure:
+  // SWIFT_ENABLE_TENSORFLOW
+  case SILFunctionTypeRepresentation::TensorFlow:
     return SILFunctionLanguage::Swift;
   }
 
@@ -2829,6 +2843,8 @@ public:
       case SILFunctionTypeRepresentation::Thin:
       case SILFunctionTypeRepresentation::CFunctionPointer:
       case SILFunctionTypeRepresentation::Closure:
+      // SWIFT_ENABLE_TENSORFLOW
+      case SILFunctionTypeRepresentation::TensorFlow:
         return false;
       case SILFunctionTypeRepresentation::ObjCMethod:
       case SILFunctionTypeRepresentation::Method:
@@ -2851,6 +2867,8 @@ public:
       case SILFunctionTypeRepresentation::WitnessMethod:
       case SILFunctionTypeRepresentation::CFunctionPointer:
       case SILFunctionTypeRepresentation::Closure:
+      // SWIFT_ENABLE_TENSORFLOW
+      case SILFunctionTypeRepresentation::TensorFlow:
         return false;
       }
 
@@ -3632,6 +3650,8 @@ public:
       case Representation::Thin:
       case Representation::CFunctionPointer:
       case Representation::Closure:
+      // SWIFT_ENABLE_TENSORFLOW
+      case Representation::TensorFlow:
         return false;
       case Representation::ObjCMethod:
       case Representation::Method:
@@ -3654,6 +3674,8 @@ public:
       case Representation::Method:
       case Representation::WitnessMethod:
       case Representation::Closure:
+      // SWIFT_ENABLE_TENSORFLOW
+      case Representation::TensorFlow:
         return false;
       }
 
@@ -3958,6 +3980,10 @@ public:
   CanGenericSignature getGenericSignature() const { return GenericSig; }
 
   CanType getSelfInstanceType() const;
+
+  /// SWIFT_ENABLE_TENSORFLOW
+  CanSILFunctionType getGradientType(
+    const SILReverseAutoDiffConfig &config, SILModule &M);
 
   /// If this is a @convention(witness_method) function with a protocol
   /// constrained self parameter, return the protocol constraint for

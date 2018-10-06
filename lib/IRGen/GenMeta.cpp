@@ -4033,6 +4033,8 @@ SpecialProtocol irgen::getSpecialProtocolID(ProtocolDecl *P) {
   case KnownProtocolKind::ExpressibleByColorLiteral:
   case KnownProtocolKind::ExpressibleByImageLiteral:
   case KnownProtocolKind::ExpressibleByFileReferenceLiteral:
+  // SWIFT_ENABLE_TENSORFLOW
+  case KnownProtocolKind::ExpressibleByTensorFlowOp:
   case KnownProtocolKind::ExpressibleByBuiltinBooleanLiteral:
   case KnownProtocolKind::ExpressibleByBuiltinUTF16ExtendedGraphemeClusterLiteral:
   case KnownProtocolKind::ExpressibleByBuiltinExtendedGraphemeClusterLiteral:
@@ -4049,6 +4051,16 @@ SpecialProtocol irgen::getSpecialProtocolID(ProtocolDecl *P) {
   case KnownProtocolKind::CodingKey:
   case KnownProtocolKind::Encodable:
   case KnownProtocolKind::Decodable:
+  // SWIFT_ENABLE_TENSORFLOW
+  case KnownProtocolKind::AccelerableByTensorFlow:
+  case KnownProtocolKind::FloatingPoint:
+  case KnownProtocolKind::Numeric:
+  case KnownProtocolKind::ParameterAggregate:
+  case KnownProtocolKind::Parameterized:
+  case KnownProtocolKind::TensorProtocol:
+  case KnownProtocolKind::TensorSendableReceivable:
+  case KnownProtocolKind::VectorNumeric:
+  case KnownProtocolKind::Differentiable:
     return SpecialProtocol::None;
   }
 
